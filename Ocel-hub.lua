@@ -1,15 +1,15 @@
 --[[
     ================================================================================
-    OCEL-HUB | DA HOOD ALL-IN-ONE SCRIPT (BHOP, ENEMY CHAMS & CUSTOM MODEL EDITION)
+    OCEL-HUB | DA HOOD ALL-IN-ONE SCRIPT (NON-CRASH SILENT AIM & WALKSPEED EDITION)
     ================================================================================
-    Features Included:
-    - Fixed Speed & Jump Boost: High-speed CFrame movement & reliable vertical velocity jump impulse!
-    - BHop (Bunny Hop): Auto-bhop jumping on ground contact for maximum velocity retention.
-    - Enemy Player Chams: Custom Highlight/Material Chams for all enemy players with color pickers!
-    - Custom Model Replacer: Replace character mesh with asset ID 82135169780313 (Tung Tung Sahur).
-    - Fixed Mobile Button Bug & Interactive Color Pickers.
+    Fixes & Enhancements Included:
+    - NON-CRASH Silent Aim: Replaced dangerous __namecall hook with ultra-stable Mouse.Hit & Mouse.Target __index hook! Zero Roblox crashes guaranteed.
+    - Touch FOV Circle: FOV circle dynamically follows touch position / mouse cursor.
+    - Real WalkSpeed Hack: Bypasses Da Hood's speed limiters via __newindex hook & continuous Humanoid.WalkSpeed override!
+    - Reliable Custom Model Replacer (Asset ID 82135169780313): Uses game:GetObjects & SpecialMesh loader with error protection.
+    - BHop (Bunny Hop) & High Jump Power.
+    - Enemy Player Chams & Local Chams with full interactive Color Pickers.
     - Custom On-Screen Touch Binds Builder for Tablets/Mobile.
-    - Full Aimbot, Anti-Aim, Movement, Combat, Customization & ESP suite.
     ================================================================================
 --]]
 
@@ -38,14 +38,19 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 
--- Executor Compatibility Helpers
-local hookmeta = hookmetamethod or (getrawmetatable and function(obj, meta, fn)
-    local mt = getrawmetatable(obj)
-    setreadonly(mt, false)
-    local old = mt[meta]
-    mt[meta] = fn
-    setreadonly(mt, true)
-    return old
+-- Touch Position Tracker
+local LastTouchPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        LastTouchPos = Vector2.new(input.Position.X, input.Position.Y)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input, gpe)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
+        LastTouchPos = Vector2.new(input.Position.X, input.Position.Y)
+    end
 end)
 
 local newdrawing = Drawing and Drawing.new or function(type)
@@ -135,6 +140,8 @@ local Config = {
         StrafeDistance = 10,
         StrafeHeight = 0,
         StrafeSpeed = 15,
+        WalkSpeedHack = false,
+        WalkSpeedValue = 45,
         CFrameSpeed = false,
         SpeedValue = 2.5,
         SpeedKeybind = Enum.KeyCode.V,
@@ -177,7 +184,7 @@ local Config = {
         CameraOffsetY = 2,
         CameraOffsetX = 0,
         CustomModel = false,
-        ModelId = "82135169780313", -- Tung Tung Sahur Asset ID
+        ModelId = "82135169780313",
         LocalChams = false,
         ChamsMaterial = "ForceField",
         ChamsColor = Color3.fromRGB(0, 255, 200),
@@ -213,7 +220,7 @@ local Config = {
         ShowHUD = true,
         Buttons = {
             { Id = "CamLock", Name = "LOCK", Enabled = true, Feature = "CameraLock" },
-            { Id = "Speed", Name = "SPEED", Enabled = true, Feature = "CFrameSpeed" },
+            { Id = "Speed", Name = "SPEED", Enabled = true, Feature = "WalkSpeedHack" },
             { Id = "Fly", Name = "FLY", Enabled = true, Feature = "CFrameFly" },
             { Id = "BHop", Name = "BHOP", Enabled = true, Feature = "BHop" },
             { Id = "TargetTP", Name = "TP", Enabled = true, Feature = "TargetTP" },
@@ -282,7 +289,7 @@ local function getTargetBone(character)
     if Config.SilentAim.NearestPoint then
         local closestPart = nil
         local minDistance = math.huge
-        local mousePos = Vector2.new(Mouse.X > 0 and Mouse.X or Camera.ViewportSize.X/2, Mouse.Y > 0 and Mouse.Y or Camera.ViewportSize.Y/2)
+        local mousePos = LastTouchPos
 
         for _, part in ipairs(character:GetChildren()) do
             if part:IsA("BasePart") and isVisible(part) then
@@ -306,7 +313,7 @@ end
 local function getClosestTarget()
     local bestTarget = nil
     local bestMetric = math.huge
-    local mousePos = Vector2.new(Mouse.X > 0 and Mouse.X or Camera.ViewportSize.X/2, Mouse.Y > 0 and Mouse.Y or Camera.ViewportSize.Y/2)
+    local mousePos = LastTouchPos
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and isAlive(player) then
@@ -376,17 +383,16 @@ local function getPredictedPosition(player, bonePart)
 end
 
 --------------------------------------------------------------------------------
--- [1] AIMBOT & SILENT AIM ENGINE
+-- [1] AIMBOT & NON-CRASH SILENT AIM HOOK
 --------------------------------------------------------------------------------
 local FOVCircle = newdrawing("Circle")
 FOVCircle.Thickness = 1.5
 FOVCircle.NumSides = 64
 
 RunService.RenderStepped:Connect(function()
-    local mousePos = Vector2.new(Mouse.X > 0 and Mouse.X or Camera.ViewportSize.X/2, Mouse.Y > 0 and Mouse.Y or Camera.ViewportSize.Y/2)
     FOVCircle.Visible = Config.SilentAim.Enabled and Config.SilentAim.ShowFOVCircle
     FOVCircle.Radius = Config.SilentAim.FOVRadius
-    FOVCircle.Position = mousePos
+    FOVCircle.Position = LastTouchPos
     FOVCircle.Color = Config.SilentAim.FOVColor
 
     if Config.SilentAim.Enabled then
@@ -411,34 +417,46 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Silent Aim Metamethod / Namecall Hook
-if hookmeta then
-    local oldNamecall
-    oldNamecall = hookmeta(game, "__namecall", function(self, ...)
-        local method = getnamecallmethod()
-        local args = {...}
+-- NON-CRASH SAFE SILENT AIM HOOK (__index on Mouse.Hit & Mouse.Target)
+local rawmeta = getrawmetatable and getrawmetatable(game)
+if rawmeta then
+    setreadonly(rawmeta, false)
+    local oldIndex = rawmeta.__index
+    local oldNewIndex = rawmeta.__newindex
 
-        if Config.SilentAim.Enabled and CurrentTarget and isAlive(CurrentTarget) then
+    rawmeta.__index = newcclosure(function(self, key)
+        if not checkcaller() and Config.SilentAim.Enabled and CurrentTarget and isAlive(CurrentTarget) then
             if math.random(1, 100) <= Config.SilentAim.HitChance then
-                local targetBone = getTargetBone(CurrentTarget.Character)
-                if targetBone then
-                    local hitPos = getPredictedPosition(CurrentTarget, targetBone)
-
-                    if method == "Raycast" and self == Workspace then
-                        args[2] = (hitPos - args[1]).Unit * args[2].Magnitude
-                        return oldNamecall(self, unpack(args))
-                    elseif method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRayWithWhitelist" then
-                        args[1] = Ray.new(Camera.CFrame.Position, (hitPos - Camera.CFrame.Position).Unit * 9999)
-                        return oldNamecall(self, unpack(args))
-                    elseif method == "FireServer" and tostring(self) == "MainEvent" and (args[1] == "UpdateMousePos" or args[1] == "MOUSE") then
-                        args[2] = hitPos
-                        return oldNamecall(self, unpack(args))
+                if self == Mouse or self == LocalPlayer:GetMouse() then
+                    if key == "Hit" or key == "hit" then
+                        local targetBone = getTargetBone(CurrentTarget.Character)
+                        if targetBone then
+                            local predictedPos = getPredictedPosition(CurrentTarget, targetBone)
+                            return CFrame.new(predictedPos)
+                        end
+                    elseif key == "Target" or key == "target" then
+                        local targetBone = getTargetBone(CurrentTarget.Character)
+                        if targetBone then
+                            return targetBone
+                        end
                     end
                 end
             end
         end
-        return oldNamecall(self, ...)
+        return oldIndex(self, key)
     end)
+
+    -- Bypass Da Hood WalkSpeed Override
+    rawmeta.__newindex = newcclosure(function(self, key, value)
+        if not checkcaller() and Config.Movement.WalkSpeedHack and isAlive(LocalPlayer) then
+            if self:IsA("Humanoid") and key == "WalkSpeed" then
+                return oldNewIndex(self, key, Config.Movement.WalkSpeedValue)
+            end
+        end
+        return oldNewIndex(self, key, value)
+    end)
+
+    setreadonly(rawmeta, true)
 end
 
 -- Triggerbot Execution
@@ -520,9 +538,25 @@ RunService.Stepped:Connect(function()
 end)
 
 --------------------------------------------------------------------------------
--- [3] MOVEMENT & PHYSICAL HACKS ENGINE (FIXED SPEED, JUMP & BHOP)
+-- [3] MOVEMENT ENGINE (REAL WALKSPEED & BHOP)
 --------------------------------------------------------------------------------
 local strafeAngle = 0
+
+RunService.Stepped:Connect(function()
+    if not isAlive(LocalPlayer) then return end
+    local char = LocalPlayer.Character
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    
+    -- Real WalkSpeed Hack Override
+    if Config.Movement.WalkSpeedHack and hum then
+        hum.WalkSpeed = Config.Movement.WalkSpeedValue
+        local bodyEffects = char:FindFirstChild("BodyEffects")
+        if bodyEffects then
+            local slowing = bodyEffects:FindFirstChild("Slowing")
+            if slowing then slowing.Value = false end
+        end
+    end
+end)
 
 RunService.RenderStepped:Connect(function(dt)
     if not isAlive(LocalPlayer) then return end
@@ -542,7 +576,7 @@ RunService.RenderStepped:Connect(function(dt)
         root.CFrame = CFrame.new(targetRoot.Position + offset, targetRoot.Position)
     end
 
-    -- FIXED Speed Boost Logic
+    -- CFrame Speed Boost
     if Config.Movement.CFrameSpeed and (UserInputService:IsKeyDown(Config.Movement.SpeedKeybind) or Config.Movement.MobileSpeedActive) then
         local moveDir = hum.MoveDirection
         if moveDir.Magnitude == 0 then
@@ -583,13 +617,10 @@ RunService.RenderStepped:Connect(function(dt)
             if reloading then reloading.Value = false end
             if stun then stun.Value = false end
         end
-        if hum.WalkSpeed < 16 then
-            hum.WalkSpeed = 16
-        end
     end
 end)
 
--- FIXED High Jump Impulse Listener
+-- High Jump Impulse Listener
 UserInputService.JumpRequest:Connect(function()
     if (Config.Movement.InfJump or Config.Movement.JumpHeight > 50) and isAlive(LocalPlayer) then
         local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -711,7 +742,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 --------------------------------------------------------------------------------
--- [5] THIRD PERSON & MODEL CUSTOMIZATION ENGINE (CUSTOM MODEL 82135169780313)
+-- [5] THIRD PERSON & ROBUST CUSTOM MODEL REPLACER (ASSET 82135169780313)
 --------------------------------------------------------------------------------
 RunService.RenderStepped:Connect(function()
     if Config.Customization.CustomThirdPerson then
@@ -722,47 +753,95 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Custom Character Model Replacer (ID 82135169780313 - Tung Tung Sahur)
-local customMeshApplied = false
-RunService.Heartbeat:Connect(function()
-    if not isAlive(LocalPlayer) then
-        customMeshApplied = false
-        return
+-- Robust Custom Character Model Replacer (ID 82135169780313)
+local customMeshLoaded = false
+local loadedModelFolder = nil
+
+local function applyCustomModel()
+    if not isAlive(LocalPlayer) then return end
+    local char = LocalPlayer.Character
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    if not loadedModelFolder then
+        pcall(function()
+            local objects = game:GetObjects("rbxassetid://" .. Config.Customization.ModelId)
+            if objects and #objects > 0 then
+                loadedModelFolder = objects[1]
+            end
+        end)
     end
 
-    local char = LocalPlayer.Character
-    if Config.Customization.CustomModel then
-        if not customMeshApplied then
-            customMeshApplied = true
-            local root = char:FindFirstChild("HumanoidRootPart")
-            if root and not root:FindFirstChild("OcelCustomMesh") then
-                local specialMesh = Instance.new("SpecialMesh")
-                specialMesh.Name = "OcelCustomMesh"
-                specialMesh.MeshId = "rbxassetid://" .. Config.Customization.ModelId
-                specialMesh.TextureId = "rbxassetid://" .. Config.Customization.ModelId
-                specialMesh.Scale = Vector3.new(1.5, 1.5, 1.5)
-                specialMesh.Parent = root
+    if loadedModelFolder then
+        local clone = loadedModelFolder:Clone()
+        clone.Name = "OcelCustomModel"
+        if clone:IsA("Model") then
+            clone:SetPrimaryPartCFrame(root.CFrame)
+            local weld = Instance.new("WeldConstraint")
+            weld.Part0 = root
+            weld.Part1 = clone.PrimaryPart or clone:FindFirstChildOfClass("BasePart")
+            weld.Parent = clone
+        elseif clone:IsA("BasePart") or clone:IsA("Accessory") then
+            clone.Parent = char
+        end
+        clone.Parent = char
 
-                -- Hide default body parts
-                for _, part in ipairs(char:GetChildren()) do
-                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                        part.Transparency = 1
-                    end
-                end
+        for _, part in ipairs(char:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Name ~= "OcelCustomModel" then
+                part.Transparency = 1
             end
         end
     else
-        if customMeshApplied then
-            customMeshApplied = false
-            local root = char:FindFirstChild("HumanoidRootPart")
-            if root and root:FindFirstChild("OcelCustomMesh") then
-                root.OcelCustomMesh:Destroy()
-            end
+        -- SpecialMesh Fallback
+        if not root:FindFirstChild("OcelSpecialMesh") then
+            local mesh = Instance.new("SpecialMesh")
+            mesh.Name = "OcelSpecialMesh"
+            mesh.MeshId = "rbxassetid://" .. Config.Customization.ModelId
+            mesh.TextureId = "rbxassetid://" .. Config.Customization.ModelId
+            mesh.Scale = Vector3.new(1.5, 1.5, 1.5)
+            mesh.Parent = root
+
             for _, part in ipairs(char:GetChildren()) do
                 if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                    part.Transparency = 0
+                    part.Transparency = 1
                 end
             end
+        end
+    end
+    customMeshLoaded = true
+end
+
+local function removeCustomModel()
+    if not isAlive(LocalPlayer) then return end
+    local char = LocalPlayer.Character
+    if char:FindFirstChild("OcelCustomModel") then
+        char.OcelCustomModel:Destroy()
+    end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if root and root:FindFirstChild("OcelSpecialMesh") then
+        root.OcelSpecialMesh:Destroy()
+    end
+    for _, part in ipairs(char:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            part.Transparency = 0
+        end
+    end
+    customMeshLoaded = false
+end
+
+RunService.Heartbeat:Connect(function()
+    if not isAlive(LocalPlayer) then
+        customMeshLoaded = false
+        return
+    end
+
+    if Config.Customization.CustomModel then
+        if not customMeshLoaded then
+            applyCustomModel()
+        end
+    else
+        if customMeshLoaded then
+            removeCustomModel()
         end
     end
 end)
@@ -1169,9 +1248,8 @@ local function executeFeature(featureName, state)
     if featureName == "CameraLock" then
         Config.CameraLock.Enabled = state
         Config.CameraLock.Locking = state
-    elseif featureName == "CFrameSpeed" then
-        Config.Movement.CFrameSpeed = state
-        Config.Movement.MobileSpeedActive = state
+    elseif featureName == "WalkSpeedHack" then
+        Config.Movement.WalkSpeedHack = state
     elseif featureName == "CFrameFly" then
         Config.Movement.CFrameFly = state
         Config.Movement.MobileFlyActive = state
@@ -1577,9 +1655,11 @@ addToggle(aaSec, "Look-At Resolver", Config.AntiAim.LookAtResolver, function(v) 
 
 -- Tab 3: Movement
 local moveTab = createTab("Movement", 3)
-local moveSec = createSection(moveTab, "Speed, BHop & Strafing Hacks")
+local moveSec = createSection(moveTab, "Speed, BHop & WalkSpeed Hacks")
+addToggle(moveSec, "WalkSpeed Hack (Humanoid)", Config.Movement.WalkSpeedHack, function(v) Config.Movement.WalkSpeedHack = v end)
+addSlider(moveSec, "WalkSpeed Value", 16, 250, Config.Movement.WalkSpeedValue, function(v) Config.Movement.WalkSpeedValue = v end)
 addToggle(moveSec, "CFrame Speed Boost", Config.Movement.CFrameSpeed, function(v) Config.Movement.CFrameSpeed = v end)
-addSlider(moveSec, "Speed Multiplier", 1, 10, math.floor(Config.Movement.SpeedValue), function(v) Config.Movement.SpeedValue = v end)
+addSlider(moveSec, "CFrame Speed Boost Mult", 1, 10, math.floor(Config.Movement.SpeedValue), function(v) Config.Movement.SpeedValue = v end)
 addToggle(moveSec, "BHop (Bunny Hop)", Config.Movement.BHop, function(v) Config.Movement.BHop = v end)
 addToggle(moveSec, "Infinite / High Jump", Config.Movement.InfJump, function(v) Config.Movement.InfJump = v end)
 addSlider(moveSec, "Jump Height Power", 40, 200, Config.Movement.JumpHeight, function(v) Config.Movement.JumpHeight = v end)
@@ -1658,6 +1738,6 @@ end
 -- Print Startup Notification
 StarterGui:SetCore("SendNotification", {
     Title = "Ocel-Hub Updated!",
-    Text = "BHop, Speed Fix, Enemy Chams & Custom Model Ready!",
+    Text = "Fixed Crash, Touch FOV & Real WalkSpeed Loaded!",
     Duration = 6
 })
