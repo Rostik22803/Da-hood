@@ -1,17 +1,15 @@
 --[[
     ================================================================================
-    OCEL-HUB | DA HOOD ALL-IN-ONE SCRIPT (COLOR PICKERS & MOBILE FIX EDITION)
+    OCEL-HUB | DA HOOD ALL-IN-ONE SCRIPT (BHOP, ENEMY CHAMS & CUSTOM MODEL EDITION)
     ================================================================================
     Features Included:
-    - Fixed Mobile Button Bug: Tapping OCEL circle toggles MainFrame visibility without destroying/hiding the button itself!
-    - Interactive Color Pickers: Added preset color selectors for FOV Circle, ESP Boxes, Target Glow, Tracers, Local Chams, and Weapon Chams.
-    - Custom On-Screen Touch Binds Builder: Fully customizable mobile action buttons!
-    - Aimbot & Target Tracking (Silent Aim, Camera Lock, Auto-Prediction, Resolver, Multi-Bone, Nearest Point, Triggerbot, Wall Check, Hit Chance, Priority, Auto-Switch)
-    - Anti-Aim & Defense (Desync, Velocity Flip/Invert, Spinbot/Jitter, Underground/Sky Desync, Custom Velocity, Auto-Block, Look-At Resolver)
-    - Movement & Strafing (Target Strafe, CFrame Speed/Fly, Speed Randomizer, Inf Jump, Noclip, Click/Touch TP, Anti-Slowdown)
-    - Combat Automation & Utilities (Auto Stomp, Auto Reload, Auto Buy, Auto Armor TP, Auto Eat, Cash Dropper, No Spread/Recoil, Rapid Fire, Fast Melee)
-    - Third Person & Customization (Custom Third Person, Custom Model/Tung Tung Sahur, Local Player Chams, Ghost Hitbox, Custom Anims, Weapon Chams, Trail Effect)
-    - Visuals & ESP (2D/3D Boxes, Skeleton, Health/Armor Bar, Distance/Name, Snaplines, Bullet Tracers, Hit Marker/Sound, Target Glow, FOV Circle)
+    - Fixed Speed & Jump Boost: High-speed CFrame movement & reliable vertical velocity jump impulse!
+    - BHop (Bunny Hop): Auto-bhop jumping on ground contact for maximum velocity retention.
+    - Enemy Player Chams: Custom Highlight/Material Chams for all enemy players with color pickers!
+    - Custom Model Replacer: Replace character mesh with asset ID 82135169780313 (Tung Tung Sahur).
+    - Fixed Mobile Button Bug & Interactive Color Pickers.
+    - Custom On-Screen Touch Binds Builder for Tablets/Mobile.
+    - Full Aimbot, Anti-Aim, Movement, Combat, Customization & ESP suite.
     ================================================================================
 --]]
 
@@ -33,6 +31,7 @@ local CoreGui = getService("CoreGui")
 local ReplicatedStorage = getService("ReplicatedStorage")
 local TeleportService = getService("TeleportService")
 local StarterGui = getService("StarterGui")
+local InsertService = getService("InsertService")
 local VirtualInputManager = pcall(function() return getService("VirtualInputManager") end) and getService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
@@ -137,16 +136,17 @@ local Config = {
         StrafeHeight = 0,
         StrafeSpeed = 15,
         CFrameSpeed = false,
-        SpeedValue = 2,
+        SpeedValue = 2.5,
         SpeedKeybind = Enum.KeyCode.V,
         MobileSpeedActive = false,
         CFrameFly = false,
-        FlySpeed = 20,
+        FlySpeed = 25,
         FlyKeybind = Enum.KeyCode.F,
         MobileFlyActive = false,
         SpeedRandomizer = false,
         InfJump = false,
-        JumpHeight = 50,
+        BHop = false,
+        JumpHeight = 65,
         Noclip = false,
         ClickTP = false,
         TargetTP = false,
@@ -177,7 +177,7 @@ local Config = {
         CameraOffsetY = 2,
         CameraOffsetX = 0,
         CustomModel = false,
-        ModelId = "82135169780313",
+        ModelId = "82135169780313", -- Tung Tung Sahur Asset ID
         LocalChams = false,
         ChamsMaterial = "ForceField",
         ChamsColor = Color3.fromRGB(0, 255, 200),
@@ -200,6 +200,8 @@ local Config = {
         DistanceESP = true,
         Snaplines = false,
         BulletTracers = true,
+        EnemyChams = false,
+        EnemyChamsColor = Color3.fromRGB(255, 0, 100),
         TracerColor = Color3.fromRGB(0, 255, 255),
         TargetGlow = true,
         ESPColor = Color3.fromRGB(255, 255, 255),
@@ -213,6 +215,7 @@ local Config = {
             { Id = "CamLock", Name = "LOCK", Enabled = true, Feature = "CameraLock" },
             { Id = "Speed", Name = "SPEED", Enabled = true, Feature = "CFrameSpeed" },
             { Id = "Fly", Name = "FLY", Enabled = true, Feature = "CFrameFly" },
+            { Id = "BHop", Name = "BHOP", Enabled = true, Feature = "BHop" },
             { Id = "TargetTP", Name = "TP", Enabled = true, Feature = "TargetTP" },
             { Id = "SilentAim", Name = "SILENT", Enabled = false, Feature = "SilentAim" },
             { Id = "AutoStomp", Name = "STOMP", Enabled = false, Feature = "AutoStomp" },
@@ -517,7 +520,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --------------------------------------------------------------------------------
--- [3] MOVEMENT & PHYSICAL HACKS ENGINE
+-- [3] MOVEMENT & PHYSICAL HACKS ENGINE (FIXED SPEED, JUMP & BHOP)
 --------------------------------------------------------------------------------
 local strafeAngle = 0
 
@@ -539,17 +542,19 @@ RunService.RenderStepped:Connect(function(dt)
         root.CFrame = CFrame.new(targetRoot.Position + offset, targetRoot.Position)
     end
 
-    -- CFrame Speed
+    -- FIXED Speed Boost Logic
     if Config.Movement.CFrameSpeed and (UserInputService:IsKeyDown(Config.Movement.SpeedKeybind) or Config.Movement.MobileSpeedActive) then
         local moveDir = hum.MoveDirection
         if moveDir.Magnitude == 0 then
-            moveDir = Camera.CFrame.LookVector
+            moveDir = Camera.CFrame.LookVector * Vector3.new(1, 0, 1)
         end
-        local boost = Config.Movement.SpeedValue
-        if Config.Movement.SpeedRandomizer then
-            boost = boost + (math.random(-2, 2) / 10)
+        if moveDir.Magnitude > 0 then
+            local speedMult = Config.Movement.SpeedValue * 0.4
+            if Config.Movement.SpeedRandomizer then
+                speedMult = speedMult + (math.random(-2, 2) / 10)
+            end
+            root.CFrame = root.CFrame + (moveDir.Unit * speedMult)
         end
-        root.CFrame = root.CFrame + (moveDir * boost)
     end
 
     -- CFrame Fly
@@ -557,6 +562,14 @@ RunService.RenderStepped:Connect(function(dt)
         local flyDir = Camera.CFrame.LookVector
         root.CFrame = root.CFrame + (flyDir * (Config.Movement.FlySpeed / 10))
         root.AssemblyLinearVelocity = Vector3.zero
+    end
+
+    -- BHop (Bunny Hop) Engine
+    if Config.Movement.BHop then
+        if hum.FloorMaterial ~= Enum.Material.Air then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+            root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, Config.Movement.JumpHeight, root.AssemblyLinearVelocity.Z)
+        end
     end
 
     -- Anti-Slowdown & Stun Immunity
@@ -576,9 +589,9 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
--- Infinite Jump Listener
+-- FIXED High Jump Impulse Listener
 UserInputService.JumpRequest:Connect(function()
-    if Config.Movement.InfJump and isAlive(LocalPlayer) then
+    if (Config.Movement.InfJump or Config.Movement.JumpHeight > 50) and isAlive(LocalPlayer) then
         local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if root then
             root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, Config.Movement.JumpHeight, root.AssemblyLinearVelocity.Z)
@@ -698,7 +711,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 --------------------------------------------------------------------------------
--- [5] THIRD PERSON & MODEL CUSTOMIZATION ENGINE
+-- [5] THIRD PERSON & MODEL CUSTOMIZATION ENGINE (CUSTOM MODEL 82135169780313)
 --------------------------------------------------------------------------------
 RunService.RenderStepped:Connect(function()
     if Config.Customization.CustomThirdPerson then
@@ -706,6 +719,51 @@ RunService.RenderStepped:Connect(function()
         LocalPlayer.CameraMinZoomDistance = Config.Customization.CameraDistance
         Camera.FieldOfView = Config.Customization.FOV
         LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(Config.Customization.CameraOffsetX, Config.Customization.CameraOffsetY, 0)
+    end
+end)
+
+-- Custom Character Model Replacer (ID 82135169780313 - Tung Tung Sahur)
+local customMeshApplied = false
+RunService.Heartbeat:Connect(function()
+    if not isAlive(LocalPlayer) then
+        customMeshApplied = false
+        return
+    end
+
+    local char = LocalPlayer.Character
+    if Config.Customization.CustomModel then
+        if not customMeshApplied then
+            customMeshApplied = true
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root and not root:FindFirstChild("OcelCustomMesh") then
+                local specialMesh = Instance.new("SpecialMesh")
+                specialMesh.Name = "OcelCustomMesh"
+                specialMesh.MeshId = "rbxassetid://" .. Config.Customization.ModelId
+                specialMesh.TextureId = "rbxassetid://" .. Config.Customization.ModelId
+                specialMesh.Scale = Vector3.new(1.5, 1.5, 1.5)
+                specialMesh.Parent = root
+
+                -- Hide default body parts
+                for _, part in ipairs(char:GetChildren()) do
+                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                        part.Transparency = 1
+                    end
+                end
+            end
+        end
+    else
+        if customMeshApplied then
+            customMeshApplied = false
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root and root:FindFirstChild("OcelCustomMesh") then
+                root.OcelCustomMesh:Destroy()
+            end
+            for _, part in ipairs(char:GetChildren()) do
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                    part.Transparency = 0
+                end
+            end
+        end
     end
 end)
 
@@ -755,7 +813,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 --------------------------------------------------------------------------------
--- [6] VISUALS & ESP ENGINE
+-- [6] VISUALS & ENEMY CHAMS ENGINE
 --------------------------------------------------------------------------------
 local ESPCache = {}
 
@@ -841,110 +899,130 @@ end)
 
 Players.PlayerRemoving:Connect(removeESP)
 
--- Main ESP Render Loop
+-- Main ESP & ENEMY PLAYER CHAMS Render Loop
 RunService.RenderStepped:Connect(function()
-    for player, esp in pairs(ESPCache) do
-        if Config.Visuals.Enabled and isAlive(player) then
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and isAlive(player) then
             local char = player.Character
-            local root = char.HumanoidRootPart
-            local head = char:FindFirstChild("Head")
             
-            local rootPos, onScreen = Camera:WorldToViewportPoint(root.Position)
-            local headPos = head and Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+            -- Enemy Chams Rendering
+            if Config.Visuals.EnemyChams then
+                local highlight = char:FindFirstChild("OcelEnemyChams")
+                if not highlight then
+                    highlight = Instance.new("Highlight")
+                    highlight.Name = "OcelEnemyChams"
+                    highlight.Parent = char
+                end
+                highlight.Enabled = true
+                highlight.FillColor = (player == CurrentTarget) and Config.Visuals.TargetColor or Config.Visuals.EnemyChamsColor
+                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                highlight.FillTransparency = 0.35
+                highlight.OutlineTransparency = 0
+            else
+                local highlight = char:FindFirstChild("OcelEnemyChams")
+                if highlight then highlight:Destroy() end
+            end
 
-            if onScreen and headPos then
-                local boxHeight = math.abs(headPos.Y - rootPos.Y) * 2.2
-                local boxWidth = boxHeight * 0.65
-                local boxPos = Vector2.new(rootPos.X - boxWidth / 2, rootPos.Y - boxHeight / 2)
+            -- Drawing API ESP Overlay
+            local esp = ESPCache[player]
+            if esp then
+                if Config.Visuals.Enabled then
+                    local root = char.HumanoidRootPart
+                    local head = char:FindFirstChild("Head")
+                    
+                    local rootPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+                    local headPos = head and Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
 
-                local color = (player == CurrentTarget) and Config.Visuals.TargetColor or Config.Visuals.ESPColor
+                    if onScreen and headPos then
+                        local boxHeight = math.abs(headPos.Y - rootPos.Y) * 2.2
+                        local boxWidth = boxHeight * 0.65
+                        local boxPos = Vector2.new(rootPos.X - boxWidth / 2, rootPos.Y - boxHeight / 2)
 
-                -- 2D Box ESP
-                esp.Box2D.Visible = Config.Visuals.Boxes2D
-                esp.Box2D.Size = Vector2.new(boxWidth, boxHeight)
-                esp.Box2D.Position = boxPos
-                esp.Box2D.Color = color
+                        local color = (player == CurrentTarget) and Config.Visuals.TargetColor or Config.Visuals.ESPColor
 
-                -- Name & Distance ESP
-                esp.Name.Visible = Config.Visuals.NameESP
-                esp.Name.Text = player.DisplayName
-                esp.Name.Position = Vector2.new(rootPos.X, boxPos.Y - 16)
-                esp.Name.Color = color
+                        esp.Box2D.Visible = Config.Visuals.Boxes2D
+                        esp.Box2D.Size = Vector2.new(boxWidth, boxHeight)
+                        esp.Box2D.Position = boxPos
+                        esp.Box2D.Color = color
 
-                esp.Distance.Visible = Config.Visuals.DistanceESP
-                local dist = math.floor((LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude)
-                esp.Distance.Text = dist .. " studs"
-                esp.Distance.Position = Vector2.new(rootPos.X, boxPos.Y + boxHeight + 2)
-                esp.Distance.Color = color
+                        esp.Name.Visible = Config.Visuals.NameESP
+                        esp.Name.Text = player.DisplayName
+                        esp.Name.Position = Vector2.new(rootPos.X, boxPos.Y - 16)
+                        esp.Name.Color = color
 
-                -- Health Bar ESP
-                local health = char.Humanoid.Health
-                local maxHealth = char.Humanoid.MaxHealth
-                local healthRatio = math.clamp(health / maxHealth, 0, 1)
+                        esp.Distance.Visible = Config.Visuals.DistanceESP
+                        local dist = math.floor((LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude)
+                        esp.Distance.Text = dist .. " studs"
+                        esp.Distance.Position = Vector2.new(rootPos.X, boxPos.Y + boxHeight + 2)
+                        esp.Distance.Color = color
 
-                esp.HealthBarBg.Visible = Config.Visuals.HealthBar
-                esp.HealthBarBg.Size = Vector2.new(4, boxHeight)
-                esp.HealthBarBg.Position = Vector2.new(boxPos.X - 8, boxPos.Y)
+                        local health = char.Humanoid.Health
+                        local maxHealth = char.Humanoid.MaxHealth
+                        local healthRatio = math.clamp(health / maxHealth, 0, 1)
 
-                esp.HealthBar.Visible = Config.Visuals.HealthBar
-                esp.HealthBar.Size = Vector2.new(4, boxHeight * healthRatio)
-                esp.HealthBar.Position = Vector2.new(boxPos.X - 8, boxPos.Y + (boxHeight * (1 - healthRatio)))
-                esp.HealthBar.Color = Color3.fromRGB(255 * (1 - healthRatio), 255 * healthRatio, 0)
+                        esp.HealthBarBg.Visible = Config.Visuals.HealthBar
+                        esp.HealthBarBg.Size = Vector2.new(4, boxHeight)
+                        esp.HealthBarBg.Position = Vector2.new(boxPos.X - 8, boxPos.Y)
 
-                -- Snaplines / Tracers
-                esp.Tracer.Visible = Config.Visuals.Snaplines
-                esp.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                esp.Tracer.To = Vector2.new(rootPos.X, rootPos.Y)
-                esp.Tracer.Color = color
+                        esp.HealthBar.Visible = Config.Visuals.HealthBar
+                        esp.HealthBar.Size = Vector2.new(4, boxHeight * healthRatio)
+                        esp.HealthBar.Position = Vector2.new(boxPos.X - 8, boxPos.Y + (boxHeight * (1 - healthRatio)))
+                        esp.HealthBar.Color = Color3.fromRGB(255 * (1 - healthRatio), 255 * healthRatio, 0)
 
-                -- Skeleton ESP
-                if Config.Visuals.Skeleton then
-                    for _, item in ipairs(esp.SkeletonLines) do
-                        local partA = char:FindFirstChild(item.Connection[1])
-                        local partB = char:FindFirstChild(item.Connection[2])
+                        esp.Tracer.Visible = Config.Visuals.Snaplines
+                        esp.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        esp.Tracer.To = Vector2.new(rootPos.X, rootPos.Y)
+                        esp.Tracer.Color = color
 
-                        if partA and partB then
-                            local posA, visA = Camera:WorldToViewportPoint(partA.Position)
-                            local posB, visB = Camera:WorldToViewportPoint(partB.Position)
+                        if Config.Visuals.Skeleton then
+                            for _, item in ipairs(esp.SkeletonLines) do
+                                local partA = char:FindFirstChild(item.Connection[1])
+                                local partB = char:FindFirstChild(item.Connection[2])
 
-                            if visA and visB then
-                                item.Line.Visible = true
-                                item.Line.From = Vector2.new(posA.X, posA.Y)
-                                item.Line.To = Vector2.new(posB.X, posB.Y)
-                                item.Line.Color = color
-                            else
-                                item.Line.Visible = false
+                                if partA and partB then
+                                    local posA, visA = Camera:WorldToViewportPoint(partA.Position)
+                                    local posB, visB = Camera:WorldToViewportPoint(partB.Position)
+
+                                    if visA and visB then
+                                        item.Line.Visible = true
+                                        item.Line.From = Vector2.new(posA.X, posA.Y)
+                                        item.Line.To = Vector2.new(posB.X, posB.Y)
+                                        item.Line.Color = color
+                                    else
+                                        item.Line.Visible = false
+                                    end
+                                else
+                                    item.Line.Visible = false
+                                end
                             end
                         else
-                            item.Line.Visible = false
+                            for _, item in ipairs(esp.SkeletonLines) do item.Line.Visible = false end
                         end
+                    else
+                        esp.Box2D.Visible = false
+                        esp.Name.Visible = false
+                        esp.Distance.Visible = false
+                        esp.HealthBarBg.Visible = false
+                        esp.HealthBar.Visible = false
+                        esp.Tracer.Visible = false
+                        for _, item in ipairs(esp.SkeletonLines) do item.Line.Visible = false end
                     end
                 else
+                    esp.Box2D.Visible = false
+                    esp.Name.Visible = false
+                    esp.Distance.Visible = false
+                    esp.HealthBarBg.Visible = false
+                    esp.HealthBar.Visible = false
+                    esp.Tracer.Visible = false
                     for _, item in ipairs(esp.SkeletonLines) do item.Line.Visible = false end
                 end
-            else
-                esp.Box2D.Visible = false
-                esp.Name.Visible = false
-                esp.Distance.Visible = false
-                esp.HealthBarBg.Visible = false
-                esp.HealthBar.Visible = false
-                esp.Tracer.Visible = false
-                for _, item in ipairs(esp.SkeletonLines) do item.Line.Visible = false end
             end
-        else
-            esp.Box2D.Visible = false
-            esp.Name.Visible = false
-            esp.Distance.Visible = false
-            esp.HealthBarBg.Visible = false
-            esp.HealthBar.Visible = false
-            esp.Tracer.Visible = false
-            for _, item in ipairs(esp.SkeletonLines) do item.Line.Visible = false end
         end
     end
 end)
 
 --------------------------------------------------------------------------------
--- [7] STANDALONE GUI ENGINE & MOBILE BUG FIX
+-- [7] STANDALONE GUI ENGINE & TOUCH BINDS
 --------------------------------------------------------------------------------
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "OcelHubUI"
@@ -1021,7 +1099,6 @@ local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 6)
 CloseCorner.Parent = CloseBtn
 
--- FIXED: Toggle MainFrame.Visible ONLY so the floating OCEL button never disappears!
 CloseBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
@@ -1033,7 +1110,7 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 --------------------------------------------------------------------------------
--- 📱 MOBILE / TABLET FLOATING OPEN BUTTON & HUD (FIXED TOGGLE)
+-- 📱 FLOATING OPEN BUTTON & MOBILE HUD
 --------------------------------------------------------------------------------
 local MobileOpenBtn = Instance.new("TextButton")
 MobileOpenBtn.Name = "MobileOpenBtn"
@@ -1057,7 +1134,6 @@ MobStroke.Color = Color3.fromRGB(255, 255, 255)
 MobStroke.Thickness = 2
 MobStroke.Parent = MobileOpenBtn
 
--- FIXED: Floating OCEL Circle button now smoothly toggles MainFrame visibility without disappearing itself!
 MobileOpenBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
@@ -1099,6 +1175,8 @@ local function executeFeature(featureName, state)
     elseif featureName == "CFrameFly" then
         Config.Movement.CFrameFly = state
         Config.Movement.MobileFlyActive = state
+    elseif featureName == "BHop" then
+        Config.Movement.BHop = state
     elseif featureName == "TargetTP" then
         if isAlive(LocalPlayer) and CurrentTarget and isAlive(CurrentTarget) then
             LocalPlayer.Character.HumanoidRootPart.CFrame = CurrentTarget.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
@@ -1407,7 +1485,6 @@ local function addSlider(section, text, min, max, defaultVal, callback)
     end)
 end
 
--- 🎨 Interactive Color Picker Preset Builder
 local function addColorPicker(section, labelText, defaultColor, callback)
     local colorFrame = Instance.new("Frame")
     colorFrame.Size = UDim2.new(1, 0, 0, 52)
@@ -1500,13 +1577,15 @@ addToggle(aaSec, "Look-At Resolver", Config.AntiAim.LookAtResolver, function(v) 
 
 -- Tab 3: Movement
 local moveTab = createTab("Movement", 3)
-local moveSec = createSection(moveTab, "Speed & Strafing Hacks")
+local moveSec = createSection(moveTab, "Speed, BHop & Strafing Hacks")
+addToggle(moveSec, "CFrame Speed Boost", Config.Movement.CFrameSpeed, function(v) Config.Movement.CFrameSpeed = v end)
+addSlider(moveSec, "Speed Multiplier", 1, 10, math.floor(Config.Movement.SpeedValue), function(v) Config.Movement.SpeedValue = v end)
+addToggle(moveSec, "BHop (Bunny Hop)", Config.Movement.BHop, function(v) Config.Movement.BHop = v end)
+addToggle(moveSec, "Infinite / High Jump", Config.Movement.InfJump, function(v) Config.Movement.InfJump = v end)
+addSlider(moveSec, "Jump Height Power", 40, 200, Config.Movement.JumpHeight, function(v) Config.Movement.JumpHeight = v end)
+addToggle(moveSec, "CFrame Fly", Config.Movement.CFrameFly, function(v) Config.Movement.CFrameFly = v end)
 addToggle(moveSec, "Target Strafe (3D Orbit)", Config.Movement.TargetStrafe, function(v) Config.Movement.TargetStrafe = v end)
 addSlider(moveSec, "Strafe Distance", 5, 30, Config.Movement.StrafeDistance, function(v) Config.Movement.StrafeDistance = v end)
-addToggle(moveSec, "CFrame Speed", Config.Movement.CFrameSpeed, function(v) Config.Movement.CFrameSpeed = v end)
-addSlider(moveSec, "Speed Multiplier", 1, 10, Config.Movement.SpeedValue, function(v) Config.Movement.SpeedValue = v end)
-addToggle(moveSec, "CFrame Fly", Config.Movement.CFrameFly, function(v) Config.Movement.CFrameFly = v end)
-addToggle(moveSec, "Infinite Jump", Config.Movement.InfJump, function(v) Config.Movement.InfJump = v end)
 addToggle(moveSec, "Noclip", Config.Movement.Noclip, function(v) Config.Movement.Noclip = v end)
 addToggle(moveSec, "Anti Slowdown", Config.Movement.AntiSlowdown, function(v) Config.Movement.AntiSlowdown = v end)
 
@@ -1523,7 +1602,8 @@ addToggle(combatSec, "Fast Melee Punches", Config.Combat.FastMelee, function(v) 
 
 -- Tab 5: Customization
 local customTab = createTab("Customization", 5)
-local customSec = createSection(customTab, "Character & Third Person")
+local customSec = createSection(customTab, "Character & Custom 3D Mesh")
+addToggle(customSec, "Custom Model (Tung Tung 82135169780313)", Config.Customization.CustomModel, function(v) Config.Customization.CustomModel = v end)
 addToggle(customSec, "Custom Third Person", Config.Customization.CustomThirdPerson, function(v) Config.Customization.CustomThirdPerson = v end)
 addSlider(customSec, "Camera FOV", 60, 120, Config.Customization.FOV, function(v) Config.Customization.FOV = v end)
 addSlider(customSec, "Camera Distance", 5, 30, Config.Customization.CameraDistance, function(v) Config.Customization.CameraDistance = v end)
@@ -1533,9 +1613,11 @@ addToggle(customSec, "Weapon Chams", Config.Customization.WeaponChams, function(
 addColorPicker(customSec, "Weapon Chams Color", Config.Customization.WeaponColor, function(c) Config.Customization.WeaponColor = c end)
 addToggle(customSec, "Movement Trail Effect", Config.Customization.TrailEffect, function(v) Config.Customization.TrailEffect = v end)
 
--- Tab 6: Visuals (ESP)
+-- Tab 6: Visuals (ESP & Enemy Chams)
 local visTab = createTab("Visuals", 6)
-local visSec = createSection(visTab, "ESP Overlay Engine")
+local visSec = createSection(visTab, "ESP & Enemy Player Chams")
+addToggle(visSec, "Enemy Player Chams", Config.Visuals.EnemyChams, function(v) Config.Visuals.EnemyChams = v end)
+addColorPicker(visSec, "Enemy Chams Color", Config.Visuals.EnemyChamsColor, function(c) Config.Visuals.EnemyChamsColor = c end)
 addToggle(visSec, "Enable Master ESP", Config.Visuals.Enabled, function(v) Config.Visuals.Enabled = v end)
 addToggle(visSec, "2D Bounding Boxes", Config.Visuals.Boxes2D, function(v) Config.Visuals.Boxes2D = v end)
 addToggle(visSec, "Skeleton ESP", Config.Visuals.Skeleton, function(v) Config.Visuals.Skeleton = v end)
@@ -1576,6 +1658,6 @@ end
 -- Print Startup Notification
 StarterGui:SetCore("SendNotification", {
     Title = "Ocel-Hub Updated!",
-    Text = "Fixed OCEL button toggle & added Color Pickers.",
+    Text = "BHop, Speed Fix, Enemy Chams & Custom Model Ready!",
     Duration = 6
 })
