@@ -1,17 +1,17 @@
 --[[
     ================================================================================
-    OCEL-HUB | DA HOOD ALL-IN-ONE SCRIPT (CUSTOM TOUCH BINDS & MOBILE EDITION)
+    OCEL-HUB | DA HOOD ALL-IN-ONE SCRIPT (COLOR PICKERS & MOBILE FIX EDITION)
     ================================================================================
     Features Included:
-    - Custom On-Screen Touch Binds Builder: Fully customizable mobile action buttons! Assign any feature (Silent Aim, Cam Lock, Speed, Fly, Auto Stomp, Noclip, Target TP, Auto Eat, ESP) to on-screen touch buttons.
-    - Mobile & Tablet Support: Floating Touch Toggle Button, Dynamic Drag & Responsive UI Scaling
+    - Fixed Mobile Button Bug: Tapping OCEL circle toggles MainFrame visibility without destroying/hiding the button itself!
+    - Interactive Color Pickers: Added preset color selectors for FOV Circle, ESP Boxes, Target Glow, Tracers, Local Chams, and Weapon Chams.
+    - Custom On-Screen Touch Binds Builder: Fully customizable mobile action buttons!
     - Aimbot & Target Tracking (Silent Aim, Camera Lock, Auto-Prediction, Resolver, Multi-Bone, Nearest Point, Triggerbot, Wall Check, Hit Chance, Priority, Auto-Switch)
     - Anti-Aim & Defense (Desync, Velocity Flip/Invert, Spinbot/Jitter, Underground/Sky Desync, Custom Velocity, Auto-Block, Look-At Resolver)
     - Movement & Strafing (Target Strafe, CFrame Speed/Fly, Speed Randomizer, Inf Jump, Noclip, Click/Touch TP, Anti-Slowdown)
     - Combat Automation & Utilities (Auto Stomp, Auto Reload, Auto Buy, Auto Armor TP, Auto Eat, Cash Dropper, No Spread/Recoil, Rapid Fire, Fast Melee)
     - Third Person & Customization (Custom Third Person, Custom Model/Tung Tung Sahur, Local Player Chams, Ghost Hitbox, Custom Anims, Weapon Chams, Trail Effect)
     - Visuals & ESP (2D/3D Boxes, Skeleton, Health/Armor Bar, Distance/Name, Snaplines, Bullet Tracers, Hit Marker/Sound, Target Glow, FOV Circle)
-    - Embedded Custom Modern UI Library (Touch-compatible, draggable, responsive)
     ================================================================================
 --]]
 
@@ -70,19 +70,32 @@ local newdrawing = Drawing and Drawing.new or function(type)
     }
 end
 
+-- Preset Color Palette
+local ColorPalette = {
+    {"Mint", Color3.fromRGB(0, 255, 170)},
+    {"Cyan", Color3.fromRGB(0, 230, 255)},
+    {"Red", Color3.fromRGB(255, 50, 50)},
+    {"Green", Color3.fromRGB(50, 255, 100)},
+    {"Yellow", Color3.fromRGB(255, 220, 50)},
+    {"Purple", Color3.fromRGB(180, 70, 255)},
+    {"Pink", Color3.fromRGB(255, 80, 200)},
+    {"White", Color3.fromRGB(255, 255, 255)},
+    {"Orange", Color3.fromRGB(255, 140, 0)}
+}
+
 -- Script Master Configuration Table
 local Config = {
     -- Aimbot & Target Tracking
     SilentAim = {
         Enabled = false,
-        TargetBone = "Head", -- Head, UpperTorso, LowerTorso, HumanoidRootPart, Random
+        TargetBone = "Head",
         AutoPrediction = true,
         PredictionValue = 0.138,
         Resolver = true,
         NearestPoint = false,
         WallCheck = true,
         HitChance = 100,
-        TargetPriority = "FOV", -- FOV, Distance, Health
+        TargetPriority = "FOV",
         AutoSwitchTarget = true,
         FOVRadius = 150,
         ShowFOVCircle = true,
@@ -106,7 +119,7 @@ local Config = {
     AntiAim = {
         Enabled = false,
         Desync = false,
-        DesyncMode = "Custom Velocity", -- Custom Velocity, Underground, Sky, Flip
+        DesyncMode = "Custom Velocity",
         Spinbot = false,
         SpinSpeed = 25,
         Jitter = false,
@@ -193,7 +206,7 @@ local Config = {
         TargetColor = Color3.fromRGB(255, 50, 50)
     },
 
-    -- 📱 Customizable Mobile Touch Binds Configuration
+    -- Touch Binds Configuration
     TouchBinds = {
         ShowHUD = true,
         Buttons = {
@@ -931,7 +944,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 --------------------------------------------------------------------------------
--- [7] STANDALONE MODERN EMBEDDED GUI & DYNAMIC TOUCH BINDS ENGINE
+-- [7] STANDALONE GUI ENGINE & MOBILE BUG FIX
 --------------------------------------------------------------------------------
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "OcelHubUI"
@@ -946,7 +959,7 @@ else
     ScreenGui.Parent = CoreGui
 end
 
--- Responsive Size Calculator for Tablets
+-- Responsive Size Calculator
 local function getResponsiveSize()
     local vp = Camera.ViewportSize
     local width = math.min(640, vp.X * 0.90)
@@ -1008,12 +1021,19 @@ local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 6)
 CloseCorner.Parent = CloseBtn
 
+-- FIXED: Toggle MainFrame.Visible ONLY so the floating OCEL button never disappears!
 CloseBtn.MouseButton1Click:Connect(function()
-    ScreenGui.Enabled = not ScreenGui.Enabled
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.KeyCode == Enum.KeyCode.RightShift then
+        MainFrame.Visible = not MainFrame.Visible
+    end
 end)
 
 --------------------------------------------------------------------------------
--- 📱 DYNAMIC CUSTOM ON-SCREEN TOUCH BINDS HUD
+-- 📱 MOBILE / TABLET FLOATING OPEN BUTTON & HUD (FIXED TOGGLE)
 --------------------------------------------------------------------------------
 local MobileOpenBtn = Instance.new("TextButton")
 MobileOpenBtn.Name = "MobileOpenBtn"
@@ -1037,8 +1057,9 @@ MobStroke.Color = Color3.fromRGB(255, 255, 255)
 MobStroke.Thickness = 2
 MobStroke.Parent = MobileOpenBtn
 
+-- FIXED: Floating OCEL Circle button now smoothly toggles MainFrame visibility without disappearing itself!
 MobileOpenBtn.MouseButton1Click:Connect(function()
-    ScreenGui.Enabled = not ScreenGui.Enabled
+    MainFrame.Visible = not MainFrame.Visible
 end)
 
 -- Dynamic On-Screen Mobile Quick Touch Action Bar
@@ -1068,7 +1089,6 @@ HudPadding.PaddingLeft = UDim.new(0, 6)
 HudPadding.PaddingRight = UDim.new(0, 6)
 HudPadding.Parent = MobileHUD
 
--- Feature Toggle Trigger Handler
 local function executeFeature(featureName, state)
     if featureName == "CameraLock" then
         Config.CameraLock.Enabled = state
@@ -1100,7 +1120,6 @@ local function executeFeature(featureName, state)
     end
 end
 
--- Refresh Dynamic Mobile Touch Buttons
 local function refreshMobileHUD()
     for _, child in ipairs(MobileHUD:GetChildren()) do
         if child:IsA("TextButton") then
@@ -1388,6 +1407,67 @@ local function addSlider(section, text, min, max, defaultVal, callback)
     end)
 end
 
+-- 🎨 Interactive Color Picker Preset Builder
+local function addColorPicker(section, labelText, defaultColor, callback)
+    local colorFrame = Instance.new("Frame")
+    colorFrame.Size = UDim2.new(1, 0, 0, 52)
+    colorFrame.BackgroundTransparency = 1
+    colorFrame.Parent = section
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 18)
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(220, 225, 235)
+    label.TextSize = 12
+    label.Font = Enum.Font.Gotham
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.BackgroundTransparency = 1
+    label.Parent = colorFrame
+
+    local paletteScroll = Instance.new("ScrollingFrame")
+    paletteScroll.Size = UDim2.new(1, 0, 0, 28)
+    paletteScroll.Position = UDim2.new(0, 0, 0, 22)
+    paletteScroll.BackgroundTransparency = 1
+    paletteScroll.ScrollBarThickness = 2
+    paletteScroll.CanvasSize = UDim2.new(0, #ColorPalette * 32, 0, 0)
+    paletteScroll.Parent = colorFrame
+
+    local pList = Instance.new("UIListLayout")
+    pList.FillDirection = Enum.FillDirection.Horizontal
+    pList.Padding = UDim.new(0, 6)
+    pList.Parent = paletteScroll
+
+    for _, colorData in ipairs(ColorPalette) do
+        local name = colorData[1]
+        local col = colorData[2]
+
+        local colorBtn = Instance.new("TextButton")
+        colorBtn.Size = UDim2.new(0, 26, 0, 26)
+        colorBtn.Text = ""
+        colorBtn.BackgroundColor3 = col
+        colorBtn.Parent = paletteScroll
+
+        local cCorner = Instance.new("UICorner")
+        cCorner.CornerRadius = UDim.new(1, 0)
+        cCorner.Parent = colorBtn
+
+        local cStroke = Instance.new("UIStroke")
+        cStroke.Color = (col == defaultColor) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(40, 45, 55)
+        cStroke.Thickness = 2
+        cStroke.Parent = colorBtn
+
+        colorBtn.MouseButton1Click:Connect(function()
+            for _, btn in ipairs(paletteScroll:GetChildren()) do
+                if btn:IsA("TextButton") and btn:FindFirstChildOfClass("UIStroke") then
+                    btn:FindFirstChildOfClass("UIStroke").Color = Color3.fromRGB(40, 45, 55)
+                end
+            end
+            cStroke.Color = Color3.fromRGB(255, 255, 255)
+            callback(col)
+        end)
+    end
+end
+
 --------------------------------------------------------------------------------
 -- BUILD UI TABS & SECTIONS
 --------------------------------------------------------------------------------
@@ -1406,6 +1486,7 @@ addSlider(aimSec, "Hit Chance (%)", 1, 100, Config.SilentAim.HitChance, function
 local lockSec = createSection(aimTab, "Camera Hard Lock & Triggerbot")
 addToggle(lockSec, "Camera Lock", Config.CameraLock.Enabled, function(v) Config.CameraLock.Enabled = v end)
 addToggle(lockSec, "Triggerbot", Config.Triggerbot.Enabled, function(v) Config.Triggerbot.Enabled = v end)
+addColorPicker(aimSec, "FOV Circle Color", Config.SilentAim.FOVColor, function(c) Config.SilentAim.FOVColor = c end)
 
 -- Tab 2: Anti-Aim
 local aaTab = createTab("Anti-Aim", 2)
@@ -1447,7 +1528,9 @@ addToggle(customSec, "Custom Third Person", Config.Customization.CustomThirdPers
 addSlider(customSec, "Camera FOV", 60, 120, Config.Customization.FOV, function(v) Config.Customization.FOV = v end)
 addSlider(customSec, "Camera Distance", 5, 30, Config.Customization.CameraDistance, function(v) Config.Customization.CameraDistance = v end)
 addToggle(customSec, "Local Player Chams", Config.Customization.LocalChams, function(v) Config.Customization.LocalChams = v end)
+addColorPicker(customSec, "Local Chams Color", Config.Customization.ChamsColor, function(c) Config.Customization.ChamsColor = c end)
 addToggle(customSec, "Weapon Chams", Config.Customization.WeaponChams, function(v) Config.Customization.WeaponChams = v end)
+addColorPicker(customSec, "Weapon Chams Color", Config.Customization.WeaponColor, function(c) Config.Customization.WeaponColor = c end)
 addToggle(customSec, "Movement Trail Effect", Config.Customization.TrailEffect, function(v) Config.Customization.TrailEffect = v end)
 
 -- Tab 6: Visuals (ESP)
@@ -1460,8 +1543,10 @@ addToggle(visSec, "Health Bars", Config.Visuals.HealthBar, function(v) Config.Vi
 addToggle(visSec, "Player Name ESP", Config.Visuals.NameESP, function(v) Config.Visuals.NameESP = v end)
 addToggle(visSec, "Distance ESP", Config.Visuals.DistanceESP, function(v) Config.Visuals.DistanceESP = v end)
 addToggle(visSec, "Snaplines / Tracers", Config.Visuals.Snaplines, function(v) Config.Visuals.Snaplines = v end)
+addColorPicker(visSec, "ESP Box / Skeleton Color", Config.Visuals.ESPColor, function(c) Config.Visuals.ESPColor = c end)
+addColorPicker(visSec, "Locked Target Highlight Color", Config.Visuals.TargetColor, function(c) Config.Visuals.TargetColor = c end)
 
--- 📱 Tab 7: Custom Touch Binds Manager
+-- Tab 7: Custom Touch Binds Manager
 local bindTab = createTab("Touch Binds", 7)
 local bindSec = createSection(bindTab, "Custom Screen Touch Buttons")
 
@@ -1488,9 +1573,9 @@ if defaultBtn then
     defaultBtn.TextColor3 = Color3.fromRGB(15, 18, 24)
 end
 
--- Print Mobile Startup Notification
+-- Print Startup Notification
 StarterGui:SetCore("SendNotification", {
-    Title = "Ocel-Hub Touch Binds Ready!",
-    Text = "Configure screen buttons in 'Touch Binds' tab.",
+    Title = "Ocel-Hub Updated!",
+    Text = "Fixed OCEL button toggle & added Color Pickers.",
     Duration = 6
 })
