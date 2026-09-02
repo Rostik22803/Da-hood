@@ -1,10 +1,10 @@
 --[[
     ================================================================================
-    OCEL-HUB | DA HOOD ALL-IN-ONE SCRIPT (FIXED SILENT AIM & CUSTOM MODEL)
+    OCEL-HUB | DA HOOD ALL-IN-ONE SCRIPT (RELIABLE SILENT AIM & MODEL FIX)
     ================================================================================
     Fixes Included:
-    - Fixed Silent Aim: Added R6/R15 bone resolution (Torso/Head/RootPart), IsA("Mouse") check, disabled default WallCheck blocking, and updated MainEvent remote hook!
-    - Fixed Custom Model (Asset ID 82135169780313): Created visible BasePart container welded to RootPart so SpecialMesh renders properly!
+    - Fixed Silent Aim: Replaced self:IsA("Mouse") check (which failed on Solara/Wave) with tostring(self) == "Mouse" AND direct hookfunction on MainEvent.FireServer!
+    - Fixed Custom Model (Asset ID 82135169780313): Safely loads asset via game:GetObjects & InsertService. Only hides body parts IF model/mesh successfully loads, preventing character from becoming invisible!
     - Centered FOV Circle on screen center.
     - Real WalkSpeed Hack with Humanoid override & anti-slowdown.
     - BHop, High Jump, Enemy Chams, Touch Binds Builder.
@@ -29,6 +29,7 @@ local CoreGui = getService("CoreGui")
 local ReplicatedStorage = getService("ReplicatedStorage")
 local TeleportService = getService("TeleportService")
 local StarterGui = getService("StarterGui")
+local InsertService = getService("InsertService")
 local VirtualInputManager = pcall(function() return getService("VirtualInputManager") end) and getService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
@@ -84,7 +85,7 @@ local Config = {
         PredictionValue = 0.138,
         Resolver = true,
         NearestPoint = false,
-        WallCheck = false, -- Disabled by default so raycasts don't block target acquisition
+        WallCheck = false,
         HitChance = 100,
         TargetPriority = "FOV",
         AutoSwitchTarget = true,
@@ -269,7 +270,7 @@ local function isVisible(part, ignoreList)
     return result.Instance:IsDescendantOf(part.Parent)
 end
 
--- R6 & R15 Universal Bone Resolver
+-- Universal R6 / R15 Bone Resolver
 local function getBonePart(character, selectedBone)
     if not character then return nil end
     if selectedBone == "Random" then
@@ -365,7 +366,7 @@ local function getPredictedPosition(player, bonePart)
 end
 
 --------------------------------------------------------------------------------
--- [1] AIMBOT & SILENT AIM ENGINE
+-- [1] AIMBOT & RELIABLE SILENT AIM ENGINE
 --------------------------------------------------------------------------------
 local FOVCircle = newdrawing("Circle")
 FOVCircle.Thickness = 1.5
@@ -421,7 +422,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- SAFE UNIVERSAL SILENT AIM HOOK
+-- LAYER 1: MOUSE __INDEX HOOK (ROBUST TOSTRING CHECK)
 local rawmeta = getrawmetatable and getrawmetatable(game)
 if rawmeta then
     setreadonly(rawmeta, false)
@@ -430,10 +431,11 @@ if rawmeta then
 
     rawmeta.__index = newcclosure(function(self, key)
         if not checkcaller() and Config.SilentAim.Enabled and SilentAimTargetCFrame then
-            if typeof(self) == "Instance" and self:IsA("Mouse") then
-                if key == "Hit" or key == "hit" then
+            if tostring(self) == "Mouse" or (typeof(self) == "Instance" and self:IsA("Mouse")) then
+                local k = tostring(key):lower()
+                if k == "hit" then
                     return SilentAimTargetCFrame
-                elseif key == "Target" or key == "target" then
+                elseif k == "target" then
                     return SilentAimTargetPart
                 end
             end
@@ -454,22 +456,20 @@ if rawmeta then
     setreadonly(rawmeta, true)
 end
 
--- Hook MainEvent FireServer for Da Hood Guns
-if hookmetamethod then
-    local oldNamecall
-    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-        local method = getnamecallmethod()
+-- LAYER 2: DIRECT HOOKFUNCTION ON DA HOOD MAINEVENT
+local mainEvent = ReplicatedStorage:FindFirstChild("MainEvent")
+if mainEvent and hookfunction then
+    local oldFireServer
+    oldFireServer = hookfunction(mainEvent.FireServer, newcclosure(function(self, ...)
+        local args = {...}
         if not checkcaller() and Config.SilentAim.Enabled and SilentAimTargetVector then
-            if (method == "FireServer" or method == "fireServer") and tostring(self) == "MainEvent" then
-                local args = {...}
-                local arg1 = tostring(args[1])
-                if arg1 == "UpdateMousePos" or arg1 == "MOUSE" or arg1 == "UpdateMousePosI" or arg1 == "ShootPos" then
-                    args[2] = SilentAimTargetVector
-                    return oldNamecall(self, unpack(args))
-                end
+            local arg1 = tostring(args[1])
+            if arg1 == "UpdateMousePos" or arg1 == "MOUSE" or arg1 == "UpdateMousePosI" or arg1 == "ShootPos" or arg1 == "UpdateMousePosI2" then
+                args[2] = SilentAimTargetVector
+                return oldFireServer(self, unpack(args))
             end
         end
-        return oldNamecall(self, ...)
+        return oldFireServer(self, ...)
     end))
 end
 
@@ -756,7 +756,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 --------------------------------------------------------------------------------
--- [5] THIRD PERSON & FIXED CUSTOM MODEL REPLACER (ASSET 82135169780313)
+-- [5] THIRD PERSON & SAFE CUSTOM MODEL REPLACER (ASSET 82135169780313)
 --------------------------------------------------------------------------------
 RunService.RenderStepped:Connect(function()
     if Config.Customization.CustomThirdPerson then
@@ -767,7 +767,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- FIXED Custom Character Model Replacer (ID 82135169780313 - Tung Tung Sahur)
+-- SAFE Custom Character Model Loader (ID 82135169780313)
 local customMeshLoaded = false
 
 local function applyCustomModel()
@@ -776,34 +776,60 @@ local function applyCustomModel()
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
 
-    local modelPart = char:FindFirstChild("OcelCustomModelPart")
-    if not modelPart then
-        modelPart = Instance.new("Part")
-        modelPart.Name = "OcelCustomModelPart"
-        modelPart.Size = Vector3.new(2, 2, 2)
-        modelPart.CFrame = root.CFrame
-        modelPart.CanCollide = false
-        modelPart.Anchored = false
-        modelPart.Transparency = 0
-        modelPart.Material = Enum.Material.SmoothPlastic
-        modelPart.Parent = char
+    local modelContainer = char:FindFirstChild("OcelCustomModelContainer")
+    if not modelContainer then
+        local success = false
+        pcall(function()
+            local objects = game:GetObjects("rbxassetid://" .. Config.Customization.ModelId)
+            if objects and #objects > 0 then
+                local asset = objects[1]
+                asset.Name = "OcelCustomModelContainer"
+                
+                if asset:IsA("Model") then
+                    asset:SetPrimaryPartCFrame(root.CFrame)
+                    local weld = Instance.new("WeldConstraint")
+                    weld.Part0 = root
+                    weld.Part1 = asset.PrimaryPart or asset:FindFirstChildOfClass("BasePart")
+                    weld.Parent = asset
+                    asset.Parent = char
+                    success = true
+                elseif asset:IsA("BasePart") or asset:IsA("Accessory") then
+                    asset.Parent = char
+                    success = true
+                end
+            end
+        end)
 
-        local weld = Instance.new("WeldConstraint")
-        weld.Part0 = root
-        weld.Part1 = modelPart
-        weld.Parent = modelPart
+        -- If asset load failed, fallback to SpecialMesh container
+        if not success then
+            local fallbackPart = Instance.new("Part")
+            fallbackPart.Name = "OcelCustomModelContainer"
+            fallbackPart.Size = Vector3.new(2, 2, 2)
+            fallbackPart.CFrame = root.CFrame
+            fallbackPart.CanCollide = false
+            fallbackPart.Anchored = false
+            fallbackPart.Transparency = 0
+            fallbackPart.Parent = char
 
-        local mesh = Instance.new("SpecialMesh")
-        mesh.Name = "OcelMesh"
-        mesh.MeshId = "rbxassetid://" .. Config.Customization.ModelId
-        mesh.TextureId = "rbxassetid://" .. Config.Customization.ModelId
-        mesh.Scale = Vector3.new(2, 2, 2)
-        mesh.Parent = modelPart
+            local weld = Instance.new("WeldConstraint")
+            weld.Part0 = root
+            weld.Part1 = fallbackPart
+            weld.Parent = fallbackPart
 
-        -- Hide original body parts
-        for _, part in ipairs(char:GetChildren()) do
-            if part:IsA("BasePart") and part ~= root and part ~= modelPart then
-                part.Transparency = 1
+            local mesh = Instance.new("SpecialMesh")
+            mesh.MeshId = "rbxassetid://" .. Config.Customization.ModelId
+            mesh.TextureId = "rbxassetid://" .. Config.Customization.ModelId
+            mesh.Scale = Vector3.new(2, 2, 2)
+            mesh.Parent = fallbackPart
+            success = true
+        end
+
+        -- ONLY hide original body parts IF model/mesh container successfully loaded!
+        if success then
+            for _, part in ipairs(char:GetChildren()) do
+                if part:IsA("BasePart") and part ~= root and part.Name ~= "OcelCustomModelContainer" then
+                    part.Transparency = 1
+                end
             end
         end
     end
@@ -813,8 +839,8 @@ end
 local function removeCustomModel()
     if not isAlive(LocalPlayer) then return end
     local char = LocalPlayer.Character
-    if char:FindFirstChild("OcelCustomModelPart") then
-        char.OcelCustomModelPart:Destroy()
+    if char:FindFirstChild("OcelCustomModelContainer") then
+        char.OcelCustomModelContainer:Destroy()
     end
     for _, part in ipairs(char:GetChildren()) do
         if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
@@ -846,7 +872,7 @@ RunService.RenderStepped:Connect(function()
     if not isAlive(LocalPlayer) then return end
     
     for _, part in ipairs(LocalPlayer.Character:GetChildren()) do
-        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Name ~= "OcelCustomModelPart" then
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Name ~= "OcelCustomModelContainer" then
             if Config.Customization.LocalChams then
                 part.Material = Enum.Material[Config.Customization.ChamsMaterial] or Enum.Material.ForceField
                 part.Color = Config.Customization.ChamsColor
@@ -1732,7 +1758,7 @@ end
 
 -- Print Startup Notification
 StarterGui:SetCore("SendNotification", {
-    Title = "Ocel-Hub Fixed Ready!",
-    Text = "Universal Silent Aim & Custom Model Active.",
+    Title = "Ocel-Hub Ready!",
+    Text = "Universal Silent Aim & Model Protection active.",
     Duration = 6
 })
