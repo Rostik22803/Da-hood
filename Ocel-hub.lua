@@ -1,11 +1,11 @@
 --[[
     ================================================================================
-    OCEL-HUB | DA HOOD ALL-IN-ONE SCRIPT (CRASH-PROOF SILENT AIM ENGINE)
+    OCEL-HUB | DA HOOD ALL-IN-ONE SCRIPT (CENTERED FOV CIRCLE & SILENT AIM FIX)
     ================================================================================
     Features Included:
+    - CENTERED FOV CIRCLE: FOV Circle is now locked right in the CENTER of the screen (Screen Center / Crosshair) for optimal Silent Aim targeting on Mobile/Tablets & PC!
     - 100% GUARANTEED NON-CRASH SILENT AIM: Pre-calculated target state engine. Eliminates recursive __index & __namecall stack overflows completely!
     - Dual Silent Aim Redirect: Hooks both Mouse.Hit/Mouse.Target AND ReplicatedStorage.MainEvent ("UpdateMousePos", "MOUSE", "UpdateMousePosI").
-    - Touch FOV Circle: FOV circle dynamically follows touch position / mouse cursor.
     - Real WalkSpeed Hack: Bypasses Da Hood's speed limiters via __newindex hook & continuous Humanoid.WalkSpeed override!
     - Reliable Custom Model Replacer (Asset ID 82135169780313): Uses game:GetObjects & SpecialMesh loader with error protection.
     - BHop (Bunny Hop) & High Jump Power.
@@ -39,20 +39,10 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local LocalMouse = LocalPlayer:GetMouse()
 
--- Touch Position Tracker
-local LastTouchPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        LastTouchPos = Vector2.new(input.Position.X, input.Position.Y)
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input, gpe)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
-        LastTouchPos = Vector2.new(input.Position.X, input.Position.Y)
-    end
-end)
+-- Screen Center Position Helper
+local function getScreenCenter()
+    return Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+end
 
 local newdrawing = Drawing and Drawing.new or function(type)
     return {
@@ -295,13 +285,13 @@ local function getTargetBone(character)
     if Config.SilentAim.NearestPoint then
         local closestPart = nil
         local minDistance = math.huge
-        local mousePos = LastTouchPos
+        local centerPos = getScreenCenter()
 
         for _, part in ipairs(character:GetChildren()) do
             if part:IsA("BasePart") and isVisible(part) then
                 local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
                 if onScreen then
-                    local dist = (mousePos - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                    local dist = (centerPos - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
                     if dist < minDistance then
                         minDistance = dist
                         closestPart = part
@@ -315,11 +305,11 @@ local function getTargetBone(character)
     return character:FindFirstChild(selectedBone) or character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head")
 end
 
--- Target Selection Logic
+-- Target Selection Logic (Centered on Screen)
 local function getClosestTarget()
     local bestTarget = nil
     local bestMetric = math.huge
-    local mousePos = LastTouchPos
+    local centerPos = getScreenCenter()
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and isAlive(player) then
@@ -331,7 +321,7 @@ local function getClosestTarget()
                 else
                     local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
                     if onScreen then
-                        local mouseDist = (mousePos - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                        local mouseDist = (centerPos - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
                         local worldDist = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
                         local health = char.Humanoid.Health
 
@@ -389,16 +379,17 @@ local function getPredictedPosition(player, bonePart)
 end
 
 --------------------------------------------------------------------------------
--- [1] AIMBOT & CRASH-PROOF PRE-CALCULATED SILENT AIM ENGINE
+-- [1] AIMBOT & CENTERED SILENT AIM ENGINE
 --------------------------------------------------------------------------------
 local FOVCircle = newdrawing("Circle")
 FOVCircle.Thickness = 1.5
 FOVCircle.NumSides = 64
 
 RunService.RenderStepped:Connect(function()
+    local screenCenter = getScreenCenter()
     FOVCircle.Visible = Config.SilentAim.Enabled and Config.SilentAim.ShowFOVCircle
     FOVCircle.Radius = Config.SilentAim.FOVRadius
-    FOVCircle.Position = LastTouchPos
+    FOVCircle.Position = screenCenter
     FOVCircle.Color = Config.SilentAim.FOVColor
 
     if Config.SilentAim.Enabled then
@@ -444,7 +435,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- CRASH-PROOF ULTRA-LIGHTWEIGHT HOOK (ZERO RECURSION, ZERO STACK OVERFLOW)
+-- CRASH-PROOF ULTRA-LIGHTWEIGHT HOOK
 local rawmeta = getrawmetatable and getrawmetatable(game)
 if rawmeta then
     setreadonly(rawmeta, false)
@@ -1776,7 +1767,7 @@ end
 
 -- Print Startup Notification
 StarterGui:SetCore("SendNotification", {
-    Title = "Ocel-Hub Crash-Proof Ready!",
-    Text = "Zero-recursion Silent Aim loaded.",
+    Title = "Ocel-Hub Centered FOV!",
+    Text = "FOV circle is now centered on screen.",
     Duration = 6
 })
